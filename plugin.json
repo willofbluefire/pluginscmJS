@@ -1,0 +1,7 @@
+{
+  "name": "Tileset Atlas Exporter",
+  "version": "1.0.0",
+  "description": "Exporta el atlas completo del tileset actual como PNG.",
+  "entry": "plugin.js",
+  "api": 1
+}
