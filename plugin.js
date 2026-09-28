@@ -1,14 +1,27 @@
 export default function activate(api) {
 
   // ============================================================
-  // 1. EXPORTAR EL ATLAS COMPLETO
+  // FUNCIÓN AUXILIAR: guardar Canvas como PNG
+  // ============================================================
+
+  async function canvasToBlob(canvas) {
+    return await new Promise((resolve) => {
+      canvas.toBlob(resolve, "image/png");
+    });
+  }
+
+
+  // ============================================================
+  // 1. EXPORTAR ATLAS ORIGINAL DE SCMJS
   // ============================================================
 
   api.menu.add("Tools", {
     label: "Export Tileset Atlas PNG",
 
     run: async () => {
+
       try {
+
         const loaded = await api.tileset.load();
 
         if (!loaded) {
@@ -39,22 +52,15 @@ export default function activate(api) {
         const ctx = canvas.getContext("2d");
 
         if (!ctx) {
-          await api.ui.alert(
-            "No se ha podido crear el canvas."
-          );
+          await api.ui.alert("No se ha podido crear el canvas.");
           return;
         }
 
-        // Mantener el pixel art sin suavizado
         ctx.imageSmoothingEnabled = false;
 
-        // Copiar el atlas completo
         ctx.drawImage(source, 0, 0);
 
-        // Convertir a PNG
-        const blob = await new Promise((resolve) => {
-          canvas.toBlob(resolve, "image/png");
-        });
+        const blob = await canvasToBlob(canvas);
 
         if (!blob) {
           await api.ui.alert(
@@ -69,6 +75,7 @@ export default function activate(api) {
         );
 
         if (result) {
+
           api.ui.toast({
             kind: "ok",
             title: "Atlas exportado",
@@ -76,6 +83,7 @@ export default function activate(api) {
               `${data.name}: ${atlas.count} megatiles, ` +
               `${source.width}×${source.height} px.`
           });
+
         }
 
       } catch (error) {
@@ -86,19 +94,23 @@ export default function activate(api) {
           "Se ha producido un error al exportar el atlas.\n\n" +
           String(error)
         );
+
       }
+
     }
+
   });
 
 
   // ============================================================
-  // 2. EXPORTAR INFORMACIÓN DE LOS DOODADS
+  // 2. EXPORTAR LISTA DE DOODADS
   // ============================================================
 
   api.menu.add("Tools", {
     label: "Export Tileset Doodads",
 
     run: async () => {
+
       try {
 
         const loaded = await api.tileset.load();
@@ -114,85 +126,51 @@ export default function activate(api) {
 
         if (!data || !data.doodads) {
           await api.ui.alert(
-            "Este tileset no contiene datos de doodads."
+            "No se han podido obtener los doodads."
           );
           return;
         }
 
-        // data.doodads es un DoodadCatalogue.
-        // El array real está dentro de .doodads
         const doodads = data.doodads.doodads;
 
-        if (!doodads || !Array.isArray(doodads)) {
-          await api.ui.alert(
-            "No se ha encontrado la lista de doodads del tileset."
-          );
-          return;
-        }
+        let text = "";
 
-        let output = "";
-
-        output += `Tileset: ${data.name}\n`;
-        output += `Doodads encontrados: ${doodads.length}\n\n`;
+        text += `Tileset: ${data.name}\n`;
+        text += `Doodads encontrados: ${doodads.length}\n`;
+        text += "\n";
 
         doodads.forEach((doodad, index) => {
 
-          output += `==============================\n`;
-          output += `Doodad #${index}\n`;
-          output += `==============================\n`;
-
-          output += `ID: ${doodad.id}\n`;
-          output += `Grupo: ${doodad.group}\n`;
-          output += `Categoría: ${doodad.category}\n`;
-          output += `Anchura: ${doodad.width}\n`;
-          output += `Altura: ${doodad.height}\n`;
-          output += `Rampa: ${doodad.ramp ? "SÍ" : "NO"}\n`;
+          text += `Doodad #${index}\n`;
+          text += `ID: ${doodad.id}\n`;
+          text += `Group: ${doodad.group}\n`;
+          text += `Category: ${doodad.category}\n`;
+          text += `Width: ${doodad.width}\n`;
+          text += `Height: ${doodad.height}\n`;
+          text += `Ramp: ${doodad.ramp ? "YES" : "NO"}\n`;
 
           if (doodad.overlay) {
 
-            output += `Overlay: ${doodad.overlay.kind}\n`;
-            output += `Overlay ID: ${doodad.overlay.id}\n`;
+            text +=
+              `Overlay: ${doodad.overlay.kind} ` +
+              `${doodad.overlay.id}\n`;
 
           } else {
 
-            output += `Overlay: ninguno\n`;
+            text += "Overlay: none\n";
 
           }
 
-          output += `Tiles: ${doodad.tiles.length}\n`;
+          text += `Tiles: ${Array.from(doodad.tiles).join(", ")}\n`;
+          text += `Required: ${Array.from(doodad.required).join(", ")}\n`;
 
-          output += `Tiles: `;
+          text += "\n";
 
-          for (let i = 0; i < doodad.tiles.length; i++) {
-
-            output += doodad.tiles[i];
-
-            if (i < doodad.tiles.length - 1) {
-              output += ", ";
-            }
-          }
-
-          output += `\n`;
-
-          output += `Required: `;
-
-          for (let i = 0; i < doodad.required.length; i++) {
-
-            output += doodad.required[i];
-
-            if (i < doodad.required.length - 1) {
-              output += ", ";
-            }
-          }
-
-          output += `\n\n`;
         });
 
         const blob = new Blob(
-          [output],
-          {
-            type: "text/plain;charset=utf-8"
-          }
+          [text],
+          { type: "text/plain;charset=utf-8" }
         );
 
         const result = await api.ui.saveFile(
@@ -205,8 +183,7 @@ export default function activate(api) {
           api.ui.toast({
             kind: "ok",
             title: "Doodads exportados",
-            detail:
-              `${doodads.length} doodads encontrados.`
+            detail: `${doodads.length} doodads encontrados.`
           });
 
         }
@@ -216,16 +193,19 @@ export default function activate(api) {
         console.error(error);
 
         await api.ui.alert(
-          "Se ha producido un error al exportar los doodads.\n\n" +
+          "Error al exportar los doodads.\n\n" +
           String(error)
         );
+
       }
+
     }
+
   });
 
 
   // ============================================================
-  // 3. EXPORTAR CADA DOODAD COMO PNG
+  // 3. EXPORTAR LOS DOODADS COMO PNG INDIVIDUALES
   // ============================================================
 
   api.menu.add("Tools", {
@@ -248,144 +228,77 @@ export default function activate(api) {
 
         if (!data || !data.doodads) {
           await api.ui.alert(
-            "Este tileset no contiene datos de doodads."
+            "No se han podido obtener los doodads."
           );
           return;
         }
 
         const doodads = data.doodads.doodads;
 
-        if (!doodads || !Array.isArray(doodads)) {
-          await api.ui.alert(
-            "No se ha encontrado la lista de doodads del tileset."
-          );
-          return;
-        }
-
         let exported = 0;
-        let failed = 0;
-
-        // --------------------------------------------------------
-        // Exportar uno por uno
-        // --------------------------------------------------------
 
         for (const doodad of doodads) {
 
-          try {
+          const image = api.graphics.doodadImage(doodad.id);
 
-            // Pedir a scmJS la imagen ya compuesta
-            const image = api.graphics.doodadImage(
-              doodad.id
+          if (!image || !image.image) {
+            console.warn(
+              `No se pudo obtener el doodad ${doodad.id}`
             );
-
-            if (!image || !image.image) {
-
-              console.warn(
-                `No se pudo obtener la imagen del doodad ${doodad.id}`
-              );
-
-              failed++;
-              continue;
-            }
-
-            // Crear canvas del tamaño exacto del doodad
-            const canvas = document.createElement("canvas");
-
-            canvas.width = image.width;
-            canvas.height = image.height;
-
-            const ctx = canvas.getContext("2d");
-
-            if (!ctx) {
-
-              failed++;
-              continue;
-            }
-
-            // Pixel art sin suavizado
-            ctx.imageSmoothingEnabled = false;
-
-            // Dibujar doodad
-            ctx.drawImage(
-              image.image,
-              0,
-              0
-            );
-
-            // Convertir a PNG
-            const blob = await new Promise((resolve) => {
-
-              canvas.toBlob(
-                resolve,
-                "image/png"
-              );
-
-            });
-
-            if (!blob) {
-
-              failed++;
-              continue;
-
-            }
-
-            // Nombre descriptivo
-            let category = doodad.category || "Unknown";
-
-            category = category
-              .replace(/[\\/:*?"<>|]/g, "_")
-              .replace(/\s+/g, "_");
-
-            const rampText = doodad.ramp
-              ? "_RAMP"
-              : "";
-
-            const filename =
-              `${data.name}_Doodad_${doodad.id}` +
-              `_${category}` +
-              `${rampText}.png`;
-
-            // Guardar
-            const result = await api.ui.saveFile(
-              blob,
-              filename
-            );
-
-            if (result) {
-
-              exported++;
-
-            } else {
-
-              // Si el usuario cancela una descarga,
-              // detenemos el proceso.
-              break;
-
-            }
-
-          } catch (error) {
-
-            console.error(
-              `Error exportando doodad ${doodad.id}:`,
-              error
-            );
-
-            failed++;
+            continue;
           }
-        }
 
-        // --------------------------------------------------------
-        // Resultado
-        // --------------------------------------------------------
+          const canvas = document.createElement("canvas");
+
+          canvas.width = image.width;
+          canvas.height = image.height;
+
+          const ctx = canvas.getContext("2d");
+
+          if (!ctx) {
+            continue;
+          }
+
+          ctx.imageSmoothingEnabled = false;
+
+          ctx.drawImage(
+            image.image,
+            0,
+            0
+          );
+
+          const blob = await canvasToBlob(canvas);
+
+          if (!blob) {
+            continue;
+          }
+
+          const category =
+            doodad.category
+              .replace(/[^a-zA-Z0-9_-]/g, "_");
+
+          const rampText =
+            doodad.ramp ? "_Ramp" : "";
+
+          const filename =
+            `${data.name}_Doodad_${doodad.id}_` +
+            `${category}${rampText}.png`;
+
+          const result = await api.ui.saveFile(
+            blob,
+            filename
+          );
+
+          if (result) {
+            exported++;
+          }
+
+        }
 
         api.ui.toast({
           kind: "ok",
-          title: "Exportación terminada",
-          detail:
-            `${exported} doodads exportados` +
-            (failed > 0
-              ? `, ${failed} con errores.`
-              : ".")
+          title: "Doodads exportados",
+          detail: `Listo: ${exported} doodads exportados.`
         });
 
       } catch (error) {
@@ -393,11 +306,253 @@ export default function activate(api) {
         console.error(error);
 
         await api.ui.alert(
-          "Se ha producido un error al exportar los doodads.\n\n" +
+          "Error al exportar los doodads.\n\n" +
           String(error)
         );
+
       }
+
     }
+
+  });
+
+
+  // ============================================================
+  // 4. EXPORTAR ATLAS PARA GODOT ×2
+  // ============================================================
+
+  api.menu.add("Tools", {
+    label: "Export Godot Tileset PNG x2",
+
+    run: async () => {
+
+      try {
+
+        // --------------------------------------------------------
+        // Cargar los gráficos
+        // --------------------------------------------------------
+
+        const loaded = await api.tileset.load();
+
+        if (!loaded) {
+
+          await api.ui.alert(
+            "No se han podido cargar los gráficos del tileset.\n\n" +
+            "Comprueba que los Game Data de StarCraft están instalados."
+          );
+
+          return;
+        }
+
+
+        // --------------------------------------------------------
+        // Obtener datos del tileset
+        // --------------------------------------------------------
+
+        const data = api.tileset.raw();
+
+        if (!data || !data.tileset) {
+
+          await api.ui.alert(
+            "No se han podido obtener los datos del tileset."
+          );
+
+          return;
+        }
+
+        const tileCount =
+          data.tileset.megatileCount;
+
+
+        if (!tileCount || tileCount <= 0) {
+
+          await api.ui.alert(
+            "El tileset no contiene megatiles."
+          );
+
+          return;
+        }
+
+
+        // --------------------------------------------------------
+        // CONFIGURACIÓN DEL ATLAS
+        // --------------------------------------------------------
+
+        // Cada megatile original = 32×32
+        // Lo queremos a 64×64 para nuestro juego.
+
+        const ORIGINAL_TILE_SIZE = 32;
+        const OUTPUT_TILE_SIZE = 64;
+
+        const SCALE = 2;
+
+        // Número de columnas del nuevo atlas.
+        //
+        // 32 columnas × 64 px = 2048 px de ancho.
+        //
+        // Esto produce un atlas bastante manejable
+        // para Godot.
+
+        const COLUMNS = 32;
+
+        const ROWS =
+          Math.ceil(tileCount / COLUMNS);
+
+
+        // --------------------------------------------------------
+        // Crear el canvas final
+        // --------------------------------------------------------
+
+        const canvas =
+          document.createElement("canvas");
+
+        canvas.width =
+          COLUMNS * OUTPUT_TILE_SIZE;
+
+        canvas.height =
+          ROWS * OUTPUT_TILE_SIZE;
+
+
+        const ctx =
+          canvas.getContext("2d");
+
+        if (!ctx) {
+
+          await api.ui.alert(
+            "No se ha podido crear el canvas."
+          );
+
+          return;
+        }
+
+
+        // --------------------------------------------------------
+        // Configuración pixel-perfect
+        // --------------------------------------------------------
+
+        ctx.imageSmoothingEnabled = false;
+
+
+        // --------------------------------------------------------
+        // Exportar todos los megatiles
+        // --------------------------------------------------------
+
+        let exported = 0;
+
+        for (
+          let tileId = 0;
+          tileId < tileCount;
+          tileId++
+        ) {
+
+          const image =
+            api.graphics.tileImage(tileId);
+
+
+          if (!image || !image.image) {
+
+            console.warn(
+              `No se pudo obtener el megatile ${tileId}`
+            );
+
+            continue;
+          }
+
+
+          // Posición dentro del atlas
+
+          const column =
+            tileId % COLUMNS;
+
+          const row =
+            Math.floor(tileId / COLUMNS);
+
+          const x =
+            column * OUTPUT_TILE_SIZE;
+
+          const y =
+            row * OUTPUT_TILE_SIZE;
+
+
+          // ------------------------------------------------------
+          // Dibujar 32×32 → 64×64
+          // ------------------------------------------------------
+
+          ctx.drawImage(
+            image.image,
+            0,
+            0,
+            ORIGINAL_TILE_SIZE,
+            ORIGINAL_TILE_SIZE,
+            x,
+            y,
+            OUTPUT_TILE_SIZE,
+            OUTPUT_TILE_SIZE
+          );
+
+          exported++;
+
+        }
+
+
+        // --------------------------------------------------------
+        // Convertir a PNG
+        // --------------------------------------------------------
+
+        const blob =
+          await canvasToBlob(canvas);
+
+
+        if (!blob) {
+
+          await api.ui.alert(
+            "No se ha podido generar el PNG."
+          );
+
+          return;
+        }
+
+
+        // --------------------------------------------------------
+        // Guardar
+        // --------------------------------------------------------
+
+        const filename =
+          `${data.name}_Godot_Tileset_x2.png`;
+
+        const result =
+          await api.ui.saveFile(
+            blob,
+            filename
+          );
+
+
+        if (result) {
+
+          api.ui.toast({
+            kind: "ok",
+            title: "Atlas para Godot creado",
+            detail:
+              `${exported}/${tileCount} megatiles · ` +
+              `${canvas.width}×${canvas.height} px · ` +
+              `tiles de 64×64`
+          });
+
+        }
+
+      } catch (error) {
+
+        console.error(error);
+
+        await api.ui.alert(
+          "Error al crear el atlas para Godot.\n\n" +
+          String(error)
+        );
+
+      }
+
+    }
+
   });
 
 }
