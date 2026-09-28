@@ -1,9 +1,12 @@
 export default function activate(api) {
+  // ============================================================
+  // 1. EXPORTAR EL ATLAS COMPLETO
+  // ============================================================
+
   api.menu.add("Tools", {
     label: "Export Tileset Atlas PNG",
     run: async () => {
       try {
-        // Cargar los gráficos del tileset actual
         const loaded = await api.tileset.load();
 
         if (!loaded) {
@@ -14,7 +17,6 @@ export default function activate(api) {
           return;
         }
 
-        // Obtener los datos decodificados del tileset
         const data = api.tileset.raw();
 
         if (!data || !data.atlas || !data.atlas.image) {
@@ -27,7 +29,6 @@ export default function activate(api) {
         const atlas = data.atlas;
         const source = atlas.image;
 
-        // Crear un canvas con exactamente el tamaño del atlas
         const canvas = document.createElement("canvas");
         canvas.width = source.width;
         canvas.height = source.height;
@@ -39,13 +40,9 @@ export default function activate(api) {
           return;
         }
 
-        // Mantener el pixel art sin suavizado
         ctx.imageSmoothingEnabled = false;
-
-        // Copiar el atlas completo
         ctx.drawImage(source, 0, 0);
 
-        // Convertirlo a PNG
         const blob = await new Promise((resolve) => {
           canvas.toBlob(resolve, "image/png");
         });
@@ -55,7 +52,6 @@ export default function activate(api) {
           return;
         }
 
-        // Guardar mediante el sistema de archivos de scmJS
         const result = await api.ui.saveFile(
           blob,
           `${data.name}-tileset-atlas.png`
@@ -75,6 +71,114 @@ export default function activate(api) {
 
         await api.ui.alert(
           "Se ha producido un error al exportar el atlas.\n\n" +
+          String(error)
+        );
+      }
+    }
+  });
+
+
+  // ============================================================
+  // 2. EXPORTAR DOODADS
+  // ============================================================
+
+  api.menu.add("Tools", {
+    label: "Export Tileset Doodads",
+    run: async () => {
+      try {
+        const loaded = await api.tileset.load();
+
+        if (!loaded) {
+          await api.ui.alert(
+            "No se han podido cargar los gráficos del tileset."
+          );
+          return;
+        }
+
+        const data = api.tileset.raw();
+
+        if (!data || !data.doodads) {
+          await api.ui.alert(
+            "Este tileset no contiene datos de doodads."
+          );
+          return;
+        }
+
+        const doodads = data.doodads;
+
+        // --------------------------------------------------------
+        // Crear una lista de doodads con información útil
+        // --------------------------------------------------------
+
+        let output = "";
+
+        output += `Tileset: ${data.name}\n`;
+        output += `Doodads encontrados: ${doodads.length}\n\n`;
+
+        doodads.forEach((doodad, index) => {
+          output += `==============================\n`;
+          output += `Doodad #${index}\n`;
+          output += `==============================\n`;
+
+          if (doodad.name !== undefined) {
+            output += `Nombre: ${doodad.name}\n`;
+          }
+
+          if (doodad.category !== undefined) {
+            output += `Categoría: ${doodad.category}\n`;
+          }
+
+          if (doodad.width !== undefined) {
+            output += `Anchura: ${doodad.width}\n`;
+          }
+
+          if (doodad.height !== undefined) {
+            output += `Altura: ${doodad.height}\n`;
+          }
+
+          if (doodad.tiles !== undefined) {
+            output += `Tiles: ${doodad.tiles.length}\n`;
+          }
+
+          if (doodad.ramp !== undefined) {
+            output += `Rampa: ${doodad.ramp ? "SÍ" : "NO"}\n`;
+          }
+
+          if (doodad.required !== undefined) {
+            output += `Required: ${doodad.required}\n`;
+          }
+
+          output += "\n";
+        });
+
+        // --------------------------------------------------------
+        // Guardar información de los doodads
+        // --------------------------------------------------------
+
+        const blob = new Blob(
+          [output],
+          { type: "text/plain;charset=utf-8" }
+        );
+
+        const result = await api.ui.saveFile(
+          blob,
+          `${data.name}-doodads.txt`
+        );
+
+        if (result) {
+          api.ui.toast({
+            kind: "ok",
+            title: "Doodads exportados",
+            detail:
+              `${doodads.length} doodads encontrados.`
+          });
+        }
+
+      } catch (error) {
+        console.error(error);
+
+        await api.ui.alert(
+          "Se ha producido un error al exportar los doodads.\n\n" +
           String(error)
         );
       }
