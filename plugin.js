@@ -79,7 +79,7 @@ export default function activate(api) {
 
 
   // ============================================================
-  // 2. EXPORTAR DOODADS
+  // 2. EXPORTAR INFORMACIÓN DE LOS DOODADS
   // ============================================================
 
   api.menu.add("Tools", {
@@ -104,10 +104,20 @@ export default function activate(api) {
           return;
         }
 
-        const doodads = data.doodads;
+        // IMPORTANTE:
+        // data.doodads es un DoodadCatalogue.
+        // El array real de doodads está dentro de .doodads
+        const doodads = data.doodads.doodads;
+
+        if (!doodads || !Array.isArray(doodads)) {
+          await api.ui.alert(
+            "No se ha encontrado la lista de doodads del tileset."
+          );
+          return;
+        }
 
         // --------------------------------------------------------
-        // Crear una lista de doodads con información útil
+        // Crear el informe
         // --------------------------------------------------------
 
         let output = "";
@@ -120,39 +130,49 @@ export default function activate(api) {
           output += `Doodad #${index}\n`;
           output += `==============================\n`;
 
-          if (doodad.name !== undefined) {
-            output += `Nombre: ${doodad.name}\n`;
+          output += `ID: ${doodad.id}\n`;
+          output += `Grupo: ${doodad.group}\n`;
+          output += `Categoría: ${doodad.category}\n`;
+          output += `Anchura: ${doodad.width}\n`;
+          output += `Altura: ${doodad.height}\n`;
+          output += `Rampa: ${doodad.ramp ? "SÍ" : "NO"}\n`;
+
+          if (doodad.overlay) {
+            output += `Overlay: ${doodad.overlay.kind}\n`;
+            output += `Overlay ID: ${doodad.overlay.id}\n`;
+          } else {
+            output += `Overlay: ninguno\n`;
           }
 
-          if (doodad.category !== undefined) {
-            output += `Categoría: ${doodad.category}\n`;
+          output += `Tiles: ${doodad.tiles.length}\n`;
+
+          output += `Tiles: `;
+
+          for (let i = 0; i < doodad.tiles.length; i++) {
+            output += doodad.tiles[i];
+
+            if (i < doodad.tiles.length - 1) {
+              output += ", ";
+            }
           }
 
-          if (doodad.width !== undefined) {
-            output += `Anchura: ${doodad.width}\n`;
+          output += `\n`;
+
+          output += `Required: `;
+
+          for (let i = 0; i < doodad.required.length; i++) {
+            output += doodad.required[i];
+
+            if (i < doodad.required.length - 1) {
+              output += ", ";
+            }
           }
 
-          if (doodad.height !== undefined) {
-            output += `Altura: ${doodad.height}\n`;
-          }
-
-          if (doodad.tiles !== undefined) {
-            output += `Tiles: ${doodad.tiles.length}\n`;
-          }
-
-          if (doodad.ramp !== undefined) {
-            output += `Rampa: ${doodad.ramp ? "SÍ" : "NO"}\n`;
-          }
-
-          if (doodad.required !== undefined) {
-            output += `Required: ${doodad.required}\n`;
-          }
-
-          output += "\n";
+          output += `\n\n`;
         });
 
         // --------------------------------------------------------
-        // Guardar información de los doodads
+        // Guardar informe
         // --------------------------------------------------------
 
         const blob = new Blob(
