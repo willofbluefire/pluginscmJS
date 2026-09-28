@@ -2,41 +2,82 @@ export default function activate(api) {
   api.menu.add("Tools", {
     label: "Export Tileset Atlas PNG",
     run: async () => {
-      const data = api.tileset.raw();
+      try {
+        // Cargar los gráficos del tileset actual
+        const loaded = await api.tileset.load();
 
-      if (!data || !data.atlas || !data.atlas.image) {
-        alert("No se ha podido obtener el atlas del tileset.");
-        return;
-      }
-
-      const image = data.atlas.image;
-
-      const canvas = document.createElement("canvas");
-      canvas.width = image.width;
-      canvas.height = image.height;
-
-      const ctx = canvas.getContext("2d");
-      ctx.imageSmoothingEnabled = false;
-      ctx.drawImage(image, 0, 0);
-
-      canvas.toBlob((blob) => {
-        if (!blob) {
-          alert("No se ha podido crear el PNG.");
+        if (!loaded) {
+          await api.ui.alert(
+            "No se han podido cargar los gráficos del tileset.\n\n" +
+            "Comprueba que los Game Data de StarCraft están instalados en scmJS."
+          );
           return;
         }
 
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
+        // Obtener los datos decodificados del tileset
+        const data = api.tileset.raw();
 
-        link.href = url;
-        link.download = "Installation-tileset-atlas.png";
+        if (!data || !data.atlas || !data.atlas.image) {
+          await api.ui.alert(
+            "scmJS no ha podido generar el atlas del tileset."
+          );
+          return;
+        }
 
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
+        const atlas = data.atlas;
+        const source = atlas.image;
 
-        URL.revokeObjectURL(url);
-      }, "image/png");
+        // Crear un canvas con exactamente el tamaño del atlas
+        const canvas = document.createElement("canvas");
+        canvas.width = source.width;
+        canvas.height = source.height;
+
+        const ctx = canvas.getContext("2d");
+
+        if (!ctx) {
+          await api.ui.alert("No se ha podido crear el canvas.");
+          return;
+        }
+
+        // Mantener el pixel art sin suavizado
+        ctx.imageSmoothingEnabled = false;
+
+        // Copiar el atlas completo
+        ctx.drawImage(source, 0, 0);
+
+        // Convertirlo a PNG
+        const blob = await new Promise((resolve) => {
+          canvas.toBlob(resolve, "image/png");
+        });
+
+        if (!blob) {
+          await api.ui.alert("No se ha podido generar el archivo PNG.");
+          return;
+        }
+
+        // Guardar mediante el sistema de archivos de scmJS
+        const result = await api.ui.saveFile(
+          blob,
+          `${data.name}-tileset-atlas.png`
+        );
+
+        if (result) {
+          api.ui.toast({
+            kind: "ok",
+            title: "Atlas exportado",
+            detail:
+              `${data.name}: ${atlas.count} megatiles, ` +
+              `${source.width}×${source.height} px.`
+          });
+        }
+      } catch (error) {
+        console.error(error);
+
+        await api.ui.alert(
+          "Se ha producido un error al exportar el atlas.\n\n" +
+          String(error)
+        );
+      }
     }
   });
 }
